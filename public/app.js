@@ -1,4 +1,4 @@
-const $=id=>document.getElementById(id);let socket=null,room=null,role=null,peer=null,channel=null,localStream=null,permissions={};const wsUrl=location.protocol==="https:"?"wss://"+location.host:"ws://"+location.host;
+const $=id=>document.getElementById(id);let socket=null,room=null,role=null,peer=null,channel=null,localStream=null,permissions={};const wsUrl=location.hostname==="localhost"||location.hostname==="127.0.0.1"?(location.protocol==="https:"?"wss://":"ws://")+location.host:"wss://seif-hacker-kali.onrender.com";
 function connect(){return new Promise((resolve,reject)=>{socket=new WebSocket(wsUrl);socket.onopen=()=>resolve();socket.onerror=reject;socket.onmessage=e=>handle(JSON.parse(e.data));socket.onclose=()=>{setStatus("انقطع الاتصال");resetSession()}})}
 function send(data){if(socket&&socket.readyState===1)socket.send(JSON.stringify(data))}
 function setStatus(s){$("status").textContent="● "+s}
@@ -7,10 +7,10 @@ document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>show(b.dataset.view))
 async function ensureSocket(){if(!socket||socket.readyState!==1)await connect()}
 $("create").onclick=async()=>{try{await ensureSocket();send({type:"create"});show("pair")}catch{$("joinMsg").textContent="تعذر الاتصال بخادم الاقتران."}};
 $("join").onclick=async()=>{try{await ensureSocket();room=$("joinCode").value.trim().toUpperCase();if(!room)return;$("joinMsg").textContent="جارٍ إرسال طلب الاقتران…";send({type:"join",room,device:navigator.userAgent.includes("Android")?"Android":navigator.userAgent.includes("iPhone")?"iPhone":"متصفح / كمبيوتر"})}catch{$("joinMsg").textContent="تعذر الاتصال بخادم الاقتران."}};
-$("copy").onclick=()=>navigator.clipboard.writeText(location.origin+"/?join="+room);
+$("copy").onclick=()=>navigator.clipboard.writeText(new URL("./?join="+encodeURIComponent(room),location.href).href);
 $("approve").onclick=()=>send({type:"approve"});$("reject").onclick=()=>send({type:"reject"});$("end").onclick=()=>send({type:"end"});
 function handle(m){
- if(m.type==="created"){room=m.room;$("invite").classList.remove("hidden");$("roomCode").textContent=room;$("pairUrl").textContent=location.origin+"/?join="+room;if(window.QRCode)QRCode.toCanvas($("pairUrl").textContent,{width:190,margin:1},(e,c)=>{if(!e){$("qr").replaceChildren(c)}});setStatus("بانتظار الجهاز الآخر");}
+ if(m.type==="created"){room=m.room;$("invite").classList.remove("hidden");$("roomCode").textContent=room;$("pairUrl").textContent=new URL("./?join="+encodeURIComponent(room),location.href).href;if(window.QRCode)QRCode.toCanvas($("pairUrl").textContent,{width:190,margin:1},(e,c)=>{if(!e){$("qr").replaceChildren(c)}});setStatus("بانتظار الجهاز الآخر");}
  if(m.type==="join-request"){$("approval").classList.remove("hidden");$("requestDevice").textContent="نوع الجهاز: "+m.device;setStatus("طلب موافقة وارد");}
  if(m.type==="approval-required")$("joinMsg").textContent="تم إرسال الطلب. انتظر موافقة الجهاز المضيف.";
  if(m.type==="paired"){$("approval").classList.add("hidden");$("session").classList.remove("hidden");role=m.role;setStatus("مقترن — "+role);startPeer();}
