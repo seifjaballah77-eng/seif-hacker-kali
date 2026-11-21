@@ -253,15 +253,7 @@ async function showWorldGlobe(location){
   const geo=await (countryDataPromise||loadCountryData());if(cinemaCancelled)return;
   const host=cinema.querySelector("#earthGlobe"),w=Math.max(280,host.clientWidth||window.innerWidth-48),h=Math.max(300,Math.min(560,Math.round(w*.62)));
   const labels=geo.features.map(f=>{const pos=countryLabelPoint(f),p=f.properties||{},name=p.ADMIN||p.NAME_EN||p.NAME;if(!pos||!name)return null;return {lat:pos.lat,lng:pos.lng,name:String(name)};}).filter(Boolean);
-  const networkHubs=[
-   {name:"NEW YORK",lat:40.7128,lng:-74.0060},{name:"LONDON",lat:51.5072,lng:-0.1276},
-   {name:"FRANKFURT",lat:50.1109,lng:8.6821},{name:"SINGAPORE",lat:1.3521,lng:103.8198},
-   {name:"TOKYO",lat:35.6762,lng:139.6503},{name:"HONG KONG",lat:22.3193,lng:114.1694},
-   {name:"DUBAI",lat:25.2048,lng:55.2708},{name:"MUMBAI",lat:19.0760,lng:72.8777},
-   {name:"SAO PAULO",lat:-23.5505,lng:-46.6333},{name:"LOS ANGELES",lat:34.0522,lng:-118.2437},
-   {name:"SYDNEY",lat:-33.8688,lng:151.2093},{name:"JOHANNESBURG",lat:-26.2041,lng:28.0473},
-   {name:"TUNIS",lat:36.8065,lng:10.1815}
-  ];
+  const networkHubs=GLOBAL_NODES;
   const backbonePairs=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,3],[2,6],[6,7],[7,3],[0,9],[9,4],[0,8],[8,11],[11,6],[3,10],[1,11],[12,1],[12,6],[12,2]];
   const backbone=backbonePairs.map(([a,b])=>({startLat:networkHubs[a].lat,startLng:networkHubs[a].lng,endLat:networkHubs[b].lat,endLng:networkHubs[b].lng}));
   const hubPoints=networkHubs.map(p=>({...p,size:.075}));
@@ -285,33 +277,81 @@ async function showWorldGlobe(location){
   return new Promise(resolve=>cinema.querySelector("#continueMap").addEventListener("click",()=>{window.removeEventListener("resize",resize);playCinemaTone(880,.1);resolve();},{once:true}));
  }catch(e){loading.textContent="تعذر تحميل بيانات الكرة الأرضية: "+e.message;console.error(e);return new Promise(resolve=>cinema.querySelector("#continueMap").addEventListener("click",resolve,{once:true}));}
 }
+const GLOBAL_NODES=[
+ {name:"NEW YORK",lat:40.7128,lng:-74.0060,region:"NORTH AMERICA"},
+ {name:"LONDON",lat:51.5072,lng:-0.1276,region:"EUROPE"},
+ {name:"FRANKFURT",lat:50.1109,lng:8.6821,region:"EUROPE"},
+ {name:"SINGAPORE",lat:1.3521,lng:103.8198,region:"ASIA"},
+ {name:"TOKYO",lat:35.6762,lng:139.6503,region:"ASIA"},
+ {name:"HONG KONG",lat:22.3193,lng:114.1694,region:"ASIA"},
+ {name:"DUBAI",lat:25.2048,lng:55.2708,region:"MIDDLE EAST"},
+ {name:"MUMBAI",lat:19.0760,lng:72.8777,region:"ASIA"},
+ {name:"SAO PAULO",lat:-23.5505,lng:-46.6333,region:"SOUTH AMERICA"},
+ {name:"LOS ANGELES",lat:34.0522,lng:-118.2437,region:"NORTH AMERICA"},
+ {name:"SYDNEY",lat:-33.8688,lng:151.2093,region:"OCEANIA"},
+ {name:"JOHANNESBURG",lat:-26.2041,lng:28.0473,region:"AFRICA"},
+ {name:"TUNIS",lat:36.8065,lng:10.1815,region:"AFRICA"}
+];
+const MISSION_STEPS=["تحديد الموقع الجغرافي","تحليل مسار الاتصال","اكتشاف عقدة الشبكة","تأكيد صلاحية المتابعة","إنشاء تقرير الجلسة"];
+let missionStep=0,monitorTimer=null;
+function setMissionStep(step){missionStep=Math.max(missionStep,Math.min(MISSION_STEPS.length,step));}
+function toggleFeaturePanel(kind){
+ const panel=$("featurePanel");if(!panel)return;
+ if(panel.dataset.kind===kind&&!panel.classList.contains("hidden")){panel.classList.add("hidden");panel.dataset.kind="";if(monitorTimer){clearInterval(monitorTimer);monitorTimer=null;}return;}
+ panel.dataset.kind=kind;panel.classList.remove("hidden");
+ if(monitorTimer){clearInterval(monitorTimer);monitorTimer=null;}
+ if(kind==="nodes")renderNodesPanel(panel);
+ if(kind==="missions")renderMissionsPanel(panel);
+ if(kind==="monitor"){renderMonitorPanel(panel);monitorTimer=setInterval(()=>{if(panel.dataset.kind==="monitor"&&!panel.classList.contains("hidden"))renderMonitorPanel(panel);},2500);}
+}
+function renderNodesPanel(panel){
+ panel.innerHTML='<div class="feature-head"><b>GLOBAL NODES / '+GLOBAL_NODES.length+'</b><button type="button" data-close-feature>×</button></div><p class="feature-note">مراكز اتصال مرئية على الكرة — مواقع مرجعية وليست قياساً مباشراً لحالة الخوادم.</p><div class="node-list">'+GLOBAL_NODES.map((n,i)=>'<div class="node-row"><i></i><span><b>'+escapeText(n.name)+'</b><small>'+escapeText(n.region)+' · '+n.lat.toFixed(2)+', '+n.lng.toFixed(2)+'</small></span><em>MAP NODE</em></div>').join("")+'</div>';
+ panel.querySelector("[data-close-feature]").addEventListener("click",()=>toggleFeaturePanel("nodes"));
+}
+function renderMissionsPanel(panel){
+ panel.innerHTML='<div class="feature-head"><b>MISSION CONTROL</b><button type="button" data-close-feature>×</button></div><p class="feature-note">تقدم مراحل الجلسة الحالية</p><div class="mission-progress"><span style="width:'+Math.round(missionStep/MISSION_STEPS.length*100)+'%"></span></div><div class="mission-count">'+missionStep+' / '+MISSION_STEPS.length+' COMPLETE</div><div class="mission-list">'+MISSION_STEPS.map((s,i)=>'<div class="mission-row '+(i<missionStep?"done":i===missionStep?"current":"")+'"><b>'+(i<missionStep?"✓":String(i+1).padStart(2,"0"))+'</b><span>'+s+'</span><small>'+(i<missionStep?"COMPLETE":i===missionStep?"ACTIVE":"LOCKED")+'</small></div>').join("")+'</div>';
+ panel.querySelector("[data-close-feature]").addEventListener("click",()=>toggleFeaturePanel("missions"));
+}
+function renderMonitorPanel(panel){
+ const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+ const nav=performance.getEntriesByType("navigation")[0];
+ const rtt=c&&Number.isFinite(c.rtt)?Math.round(c.rtt)+" ms":"غير متاح";
+ const down=c&&Number.isFinite(c.downlink)?c.downlink.toFixed(1)+" Mb/s":"غير متاح";
+ const type=c?(c.effectiveType||c.type||"غير محدد"):"غير مدعوم";
+ const memory=navigator.deviceMemory? navigator.deviceMemory+" GB":"غير متاح";
+ const cores=navigator.hardwareConcurrency?String(navigator.hardwareConcurrency):"غير متاح";
+ const load=nav?Math.round(nav.domContentLoadedEventEnd)+" ms":"—";
+ const rows=[["NETWORK",navigator.onLine?"ONLINE":"OFFLINE"],["CONNECTION TYPE",type],["ESTIMATED DOWNLINK",down],["ESTIMATED RTT",rtt],["DEVICE MEMORY",memory],["CPU THREADS",cores],["PAGE READY",load]];
+ panel.innerHTML='<div class="feature-head"><b>LOCAL NETWORK MONITOR</b><button type="button" data-close-feature>×</button></div><div class="monitor-live"><i></i> BROWSER TELEMETRY · REFRESH 2.5s</div><div class="monitor-grid">'+rows.map(([k,v])=>'<div><small>'+k+'</small><b>'+escapeText(v)+'</b></div>').join("")+'</div><p class="feature-note">القيم تقديرات يوفرها المتصفح والجهاز الحالي، وقد لا تتوفر في بعض المتصفحات. لا تمثل مراقبة عالمية أو قياساً لحركة الإنترنت لدى الآخرين.</p>';
+ panel.querySelector("[data-close-feature]").addEventListener("click",()=>toggleFeaturePanel("monitor"));
+}
 async function startCinema(){if(cinemaRunning||cinemaStarted)return;cinemaStarted=true;cinemaRunning=true;cinemaCancelled=false;enterImmersive();canvas.style.opacity="0";cinema.classList.remove("hidden");updateCinemaTools();const lines=[];for(let i=0;i<135;i++)lines.push(fragments[Math.floor(Math.random()*fragments.length)]);renderCinemaTerminal("SYSTEM DIAGNOSTICS — RUNNING");await typeFast(cinema.querySelector(".cinema-log"),lines.join(NL)+NL);if(cinemaCancelled)return;
  cinema.innerHTML='<div class="cinema-top"><span>SEIF // SYSTEM CONSOLE</span><span class="cinema-live">● LOADING</span></div><div class="cinema-center"><div class="cinema-kicker">INITIALIZING</div><h1>جارٍ التحميل</h1><p>يتم تجهيز النظام وتحميل المكونات...</p>'+progressMarkup("تحميل النظام")+'</div><div class="cinema-bottom">SYSTEM CONSOLE • PLEASE WAIT</div>';playCinemaTone(520,.08);await animateProgress(cinema,3200);if(cinemaCancelled)return;
  const operator=await askCinemaCommand("تسجيل اسم المستخدم","أدخل الاسم الذي سيظهر في سجل العمليات","operator",null);if(operator===null||cinemaCancelled)return;cinemaOperator=operator.slice(0,40);playCinemaTone(720,.1);
  const location=await requestGlobeLocation();if(!location||cinemaCancelled)return;
- await showWorldGlobe(location);if(cinemaCancelled)return;
+ await showWorldGlobe(location);if(cinemaCancelled)return;setMissionStep(1);
  while(!cinemaCancelled){
-  const cmd=await askCinemaCommand("أدخل أمر الفحص","اكتب أي أمر غير فارغ للبدء: scan","scan",null);if(cmd===null||cinemaCancelled)return;playCinemaTone(680,.08);
+  const cmd=await askCinemaCommand("أدخل أمر الفحص","اكتب أي أمر غير فارغ للبدء: scan","scan",null);if(cmd===null||cinemaCancelled)return;setMissionStep(2);playCinemaTone(680,.08);
   renderCinemaTerminal("NETWORK ANALYSIS","OPERATOR: "+cinemaOperator+NL+"MODE: "+"GLOBAL OPERATIONS"+NL+"C:\\SEIF> "+cmd+NL+"[+] ANALYZING ROUTE TABLE ..."+NL+"[+] PACKETS VERIFIED"+NL);
   cinema.innerHTML='<div class="cinema-top"><span>SEIF // SYSTEM CONSOLE</span><span class="cinema-live">● PROCESSING</span></div><div class="cinema-center"><div class="cinema-kicker">'+"GLOBAL OPERATIONS"+'</div><h1>جارٍ تحليل المسار</h1><p>المستخدم: '+escapeText(cinemaOperator)+' — يتم تجهيز بيانات الاتصال...</p>'+progressMarkup("تحميل بيانات الجلسة")+'</div><div class="cinema-bottom">LOCAL DISPLAY • '+"GLOBAL OPERATIONS"+'</div>';await animateProgress(cinema,3200);if(cinemaCancelled)return;playCinemaTone(820,.13);
-  const locate=await askCinemaCommand("أدخل أمر تحديد العقدة","اكتب أي نص للانتقال إلى المرحلة التالية","locate",null);if(locate===null||cinemaCancelled)return;playCinemaTone(700,.08);
+  const locate=await askCinemaCommand("أدخل أمر تحديد العقدة","اكتب أي نص للانتقال إلى المرحلة التالية","locate",null);if(locate===null||cinemaCancelled)return;setMissionStep(3);playCinemaTone(700,.08);
   cinema.innerHTML='<div class="target-found"><div class="target-icon">✓</div><div class="target-kicker">SCAN COMPLETE</div><h1>تم العثور على العقدة</h1><p>اكتمل تحليل المسار — '+escapeText(cinemaOperator)+'</p><div class="target-line">NODE STATUS: <b>FOUND</b></div><div class="target-line">NEXT: <b>AUTHORIZATION</b></div></div>';
-  const override=await askCinemaCommand("تأكيد صلاحية المتابعة","أدخل أي نص لمواصلة العملية","override",null);if(override===null||cinemaCancelled)return;
+  const override=await askCinemaCommand("تأكيد صلاحية المتابعة","أدخل أي نص لمواصلة العملية","override",null);if(override===null||cinemaCancelled)return;setMissionStep(4);
   cinema.innerHTML='<div class="red-alert"><div class="alert-box"><span>!</span></div><div class="alert-label">CRITICAL SYSTEM ALERT</div><h1>تم رصد نشاط غير معتاد</h1><p>المستخدم: '+escapeText(cinemaOperator)+' — يلزم إدخال معرّف الحساب للمتابعة</p><div class="blood-flash"></div><div class="target-line">ACCOUNT IDENTIFICATION REQUIRED</div></div>';playCinemaTone(170,.35,"sawtooth");
   const target=await askCinemaCommand("إدخال معرّف الحساب","أدخل أي اسم أو معرّف لعرضه في التقرير","username",null);if(target===null||cinemaCancelled)return;const account=target.slice(0,60);
   const deploy=await askCinemaCommand("تجهيز حزمة البيانات","أدخل أي نص لبدء شريط الإرسال","deploy",null);if(deploy===null||cinemaCancelled)return;
   cinema.innerHTML='<div class="sending-scene"><div class="sending-mark">!</div><div class="sending-kicker">DATA TRANSFER</div><h1>جارٍ تجهيز البيانات</h1><p>المستخدم: <b>'+escapeText(cinemaOperator)+'</b> — المعرّف: <b>'+escapeText(account)+'</b></p>'+progressMarkup("تقدم المعالجة")+'<div class="sending-status">PREPARING...</div></div><div class="cinema-bottom">LOCAL DISPLAY • '+"GLOBAL OPERATIONS"+'</div>';playCinemaTone(430,.12);await animateProgress(cinema,4200);if(cinemaCancelled)return;
-  const finish=await askCinemaCommand("اكتملت المعالجة","أدخل أي نص للإنهاء، أو اكتب restart لإعادة التشغيل","finish / restart",null);if(finish===null||cinemaCancelled)return;if(finish.toLowerCase()==="restart"){cinemaRunning=false;return startCinema();}
-  cinema.innerHTML='<div class="target-found"><div class="target-icon">✓</div><div class="target-kicker">PROCESS COMPLETE</div><h1>اكتملت العملية</h1><p>تم إنهاء التسلسل بنجاح</p><div class="target-line">OPERATOR: <b>'+escapeText(cinemaOperator)+'</b></div><div class="target-line">SCENARIO: <b>'+"GLOBAL OPERATIONS"+'</b></div><div class="target-line">ACCOUNT: <b>'+escapeText(account)+'</b></div><button class="cinema-button" id="exitCinema">إنهاء</button><button class="cinema-button" id="restartCinema">إعادة التشغيل</button><div class="cinema-bottom">SEIF SYSTEM TERMINAL</div></div>';playCinemaTone(980,.22);cinema.querySelector("#exitCinema").addEventListener("click",leaveCinema);cinema.querySelector("#restartCinema").addEventListener("click",()=>{cinemaRunning=false;startCinema();});return;
+  const finish=await askCinemaCommand("اكتملت المعالجة","أدخل أي نص للإنهاء، أو اكتب restart لإعادة التشغيل","finish / restart",null);if(finish===null||cinemaCancelled)return;if(finish.toLowerCase()==="restart"){missionStep=0;cinemaRunning=false;return startCinema();}setMissionStep(5);
+  cinema.innerHTML='<div class="target-found"><div class="target-icon">✓</div><div class="target-kicker">PROCESS COMPLETE</div><h1>اكتملت العملية</h1><p>تم إنهاء التسلسل بنجاح</p><div class="target-line">OPERATOR: <b>'+escapeText(cinemaOperator)+'</b></div><div class="target-line">SCENARIO: <b>'+"GLOBAL OPERATIONS"+'</b></div><div class="target-line">ACCOUNT: <b>'+escapeText(account)+'</b></div><button class="cinema-button" id="exitCinema">إنهاء</button><button class="cinema-button" id="restartCinema">إعادة التشغيل</button><div class="cinema-bottom">SEIF SYSTEM TERMINAL</div></div>';playCinemaTone(980,.22);cinema.querySelector("#exitCinema").addEventListener("click",leaveCinema);cinema.querySelector("#restartCinema").addEventListener("click",()=>{missionStep=0;cinemaRunning=false;startCinema();});return;
  }
 }
-function leaveCinema(){cinemaCancelled=true;cinemaRunning=false;cinema.classList.add("hidden");document.body.classList.remove("cinema-mode");if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}
+function leaveCinema(){cinemaCancelled=true;cinemaRunning=false;if(monitorTimer){clearInterval(monitorTimer);monitorTimer=null;}const feature=$("featurePanel");if(feature)feature.classList.add("hidden");cinema.classList.add("hidden");document.body.classList.remove("cinema-mode");if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}
 function stopExecution(){leaveCinema();appendOutput(NL+"^C"+NL+"> تم إيقاف العملية."+NL);}
 $("cmd").addEventListener("submit",e=>{e.preventDefault();startCinema();});
 commandInput.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("cmd").requestSubmit();}if(e.key==="c"&&(e.ctrlKey||e.metaKey)){e.preventDefault();stopExecution();}});
 commandInput.addEventListener("input",()=>{commandInput.style.height="auto";commandInput.style.height=Math.min(commandInput.scrollHeight,160)+"px";});
 document.addEventListener("keydown",e=>{if(!cinemaStarted&&e.key==="Enter"){e.preventDefault();startCinema();return;}if(e.key==="Escape"&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="c"&&cinemaRunning){e.preventDefault();stopExecution();}});
-$("fullScreen").addEventListener("click",()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.().catch(()=>{});});$("cinemaSoundToggle").addEventListener("click",()=>{cinemaSound=!cinemaSound;updateCinemaTools();if(cinemaSound)playCinemaTone(760,.12);});$("cinemaFullToggle").addEventListener("click",()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.().catch(()=>{});});document.addEventListener("fullscreenchange",updateCinemaTools);canvas.style.opacity="0";
+$("fullScreen").addEventListener("click",()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.().catch(()=>{});});$("cinemaSoundToggle").addEventListener("click",()=>{cinemaSound=!cinemaSound;updateCinemaTools();if(cinemaSound)playCinemaTone(760,.12);});$("nodesToggle").addEventListener("click",()=>toggleFeaturePanel("nodes"));$("monitorToggle").addEventListener("click",()=>toggleFeaturePanel("monitor"));$("missionsToggle").addEventListener("click",()=>toggleFeaturePanel("missions"));$("cinemaFullToggle").addEventListener("click",()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.().catch(()=>{});});document.addEventListener("fullscreenchange",updateCinemaTools);canvas.style.opacity="0";
 preloadGlobalNetwork();
 const inviteCode=new URLSearchParams(location.search).get("join");
 if(inviteCode){show("pair");$("joinCode").value=inviteCode.toUpperCase();message("تم تعبئة الرمز من رابط الدعوة. اضغط «طلب الانضمام» لإرسال الطلب.");}
