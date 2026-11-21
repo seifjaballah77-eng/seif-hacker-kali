@@ -11,7 +11,7 @@ function show(id){
   document.querySelectorAll(".view").forEach(x=>x.classList.add("hidden"));
   $(id).classList.remove("hidden");
   document.querySelectorAll(".nav").forEach(b=>b.classList.toggle("active",b.dataset.view===id));
-  $("heading").textContent=id==="sim"?"مركز المحاكاة":"الاقتران مع موافقة";
+  
 }
 document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>show(b.dataset.view)));
 
@@ -91,7 +91,7 @@ function handle(m){
     case "error":message(m.message||"حدث خطأ.");setStatus("تعذر إكمال العملية");break;
   }
 }
-function permissionName(p){return ({sync:"مزامنة المحاكاة",screen:"مشاركة الشاشة","app-control":"التحكم داخل صفحة التطبيق"})[p]||p;}
+function permissionName(p){return ({sync:"مزامنة النصوص",screen:"مشاركة الشاشة","app-control":"التفاعل داخل صفحة التطبيق"})[p]||p;}
 function startPeer(){
   if(peer)peer.close();
   pendingCandidates=[];makingOffer=false;ignoreOffer=false;isSettingRemoteAnswerPending=false;
@@ -193,14 +193,19 @@ function resetSession(closeSocket=false){
   if(closeSocket&&socket){socket.close();socket=null;}
   setStatus("غير مقترن");
 }
-$("cmd").addEventListener("submit",e=>{
-  e.preventDefault();const value=$("command").value.trim();if(!value)return;
-  const out=$("output"),commands={help:"الأوامر: help, status, scan, matrix, clear",status:"MODE: LOCAL SIMULATION\nREMOTE: CONSENT REQUIRED",scan:"محاكاة فحص محلية: لا يتم فحص شبكات حقيقية.",matrix:"MATRIX VISUALIZER: READY"};
-  if(value==="clear")out.textContent="";
-  else out.textContent+="\n> "+value+"\n"+(commands[value]||"أمر تجريبي غير معروف. اكتب help.");
-  $("command").value="";
-  if(permissions.sync&&channel?.readyState==="open")channel.send(JSON.stringify({type:"sync-output",text:out.textContent.slice(-12000)}));
-});
+const output=$("output"),commandInput=$("command");
+const codeFragments=["const session = await secureHandshake();","[ OK ] validating device fingerprint","stream.open({ transport: 'WebRTC' });","0x"+Math.random().toString(16).slice(2,10).toUpperCase()+" :: ACCESS TOKEN","const packet = encode(payload);","SYNC_CHANNEL // ENCRYPTED","while(connection.active){ await receive(); }","route[0] => node_"+Math.floor(Math.random()*900+100),"ALLOC "+Math.floor(Math.random()*99999)+" BYTES // COMPLETE","0x"+Math.floor(Math.random()*0xffffff).toString(16).toUpperCase()+" : RESPONSE "+(Math.random()*900|0)];
+let typingQueue=[],typingBusy=false,rainBoostUntil=0;
+function queueCode(text){typingQueue.push(...text);if(typingBusy)return;typingBusy=true;const typeNext=()=>{if(!typingQueue.length){typingBusy=false;return;}output.textContent+=typingQueue.shift();if(output.textContent.length>10500)output.textContent=output.textContent.slice(-8500);output.scrollTop=output.scrollHeight;setTimeout(typeNext,2+Math.random()*7);};typeNext();}
+function triggerCodeBurst(value){rainBoostUntil=performance.now()+3200;const burst=2+Math.floor(Math.random()*4);let lines="\\n> "+String(value).replace(/[\\r\\n]/g," ").slice(0,60)+"\\n";for(let i=0;i<burst;i++)lines+=codeFragments[Math.floor(Math.random()*codeFragments.length)]+"\\n";queueCode(lines);if(permissions.sync&&channel?.readyState==="open")channel.send(JSON.stringify({type:"sync-output",text:output.textContent.slice(-10000)}));}
+commandInput.addEventListener("input",()=>{const value=commandInput.value.slice(-1);if(value)triggerCodeBurst(value);});
+$("cmd").addEventListener("submit",e=>{e.preventDefault();const value=commandInput.value.trim();if(value){triggerCodeBurst(value);commandInput.value="";}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}if(document.getElementById("pair").classList.contains("hidden")&&!["INPUT","TEXTAREA","BUTTON"].includes(document.activeElement.tagName)&&e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey)commandInput.focus();});
+$("fullScreen").addEventListener("click",()=>{const target=document.documentElement;if(!document.fullscreenElement){target.requestFullscreen?.().catch(()=>{});}else{document.exitFullscreen?.().catch(()=>{});}});
+const canvas=$("matrixRain"),ctx=canvas.getContext("2d",{alpha:true});const glyphs="01ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%&*+-<>[]{}アカサタナハマヤラワ";let drops=[],fontSize=17,lastFrame=0;
+function resizeRain(){const dpr=Math.min(window.devicePixelRatio||1,1.6);canvas.width=Math.floor(innerWidth*dpr);canvas.height=Math.floor(innerHeight*dpr);canvas.style.width=innerWidth+"px";canvas.style.height=innerHeight+"px";ctx.setTransform(dpr,0,0,dpr,0,0);fontSize=innerWidth<650?14:17;const cols=Math.ceil(innerWidth/fontSize);drops=Array.from({length:cols},()=>Math.random()*-innerHeight/fontSize);}
+function drawRain(time){requestAnimationFrame(drawRain);if(document.hidden||time-lastFrame<38)return;lastFrame=time;ctx.fillStyle="rgba(0,4,1,0.105)";ctx.fillRect(0,0,innerWidth,innerHeight);const active=time<rainBoostUntil;ctx.font=fontSize+"px IBM Plex Mono, monospace";for(let i=0;i<drops.length;i++){if(Math.random()>(active?0.93:0.48))continue;const ch=glyphs[Math.floor(Math.random()*glyphs.length)],x=i*fontSize,y=drops[i]*fontSize;ctx.fillStyle=Math.random()>0.94?"#d8ffe1":active?"#38ff69":"#16883a";ctx.fillText(ch,x,y);drops[i]+=active?(1.2+Math.random()*2.2):(.35+Math.random()*.8);if(y>innerHeight&&Math.random()>(active?0.94:0.985))drops[i]=Math.random()*-20;}}
+window.addEventListener("resize",resizeRain);resizeRain();requestAnimationFrame(drawRain);
 const inviteCode=new URLSearchParams(location.search).get("join");
 if(inviteCode){show("pair");$("joinCode").value=inviteCode.toUpperCase();message("تم تعبئة الرمز من رابط الدعوة. اضغط «طلب الانضمام» لإرسال الطلب.");}
 if("serviceWorker"in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{});
