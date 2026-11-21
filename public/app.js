@@ -199,21 +199,29 @@ let typingQueue=[],typingBusy=false,rainBoostUntil=0;
 function queueCode(text){typingQueue.push(...text);if(typingBusy)return;typingBusy=true;const typeNext=()=>{if(!typingQueue.length){typingBusy=false;return;}output.textContent+=typingQueue.shift();if(output.textContent.length>10500)output.textContent=output.textContent.slice(-8500);output.scrollTop=output.scrollHeight;setTimeout(typeNext,2+Math.random()*7);};typeNext();}
 const NL=String.fromCharCode(10);
 function triggerCodeBurst(value){
-  rainBoostUntil=performance.now()+3200;
-  const burst=2+Math.floor(Math.random()*4);
-  let clean=String(value).replaceAll(NL," ").replaceAll(String.fromCharCode(13)," ").slice(0,60);
+  const clean=String(value).replaceAll(NL," ").replaceAll(String.fromCharCode(13)," ").trim().slice(0,240);
+  if(!clean)return;
+  rainBoostUntil=performance.now()+5200;
+  const burst=5+Math.floor(Math.random()*5);
   let lines=NL+"> "+clean+NL;
   for(let i=0;i<burst;i++)lines+=codeFragments[Math.floor(Math.random()*codeFragments.length)]+NL;
   queueCode(lines);
   if(permissions.sync&&channel?.readyState==="open")channel.send(JSON.stringify({type:"sync-output",text:output.textContent.slice(-10000)}));
 }
-commandInput.addEventListener("input",()=>{const value=commandInput.value.slice(-1);if(value)triggerCodeBurst(value);});
 $("cmd").addEventListener("submit",e=>{e.preventDefault();const value=commandInput.value.trim();if(value){triggerCodeBurst(value);commandInput.value="";}});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}const inConsole=document.getElementById("pair").classList.contains("hidden");const editing=["INPUT","TEXTAREA"].includes(document.activeElement.tagName);if(inConsole&&!editing&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!["BUTTON"].includes(document.activeElement.tagName)){if(e.key.length===1){e.preventDefault();commandInput.focus();commandInput.value+=e.key;triggerCodeBurst(e.key);}else if(e.key==="Enter"){e.preventDefault();triggerCodeBurst("EXECUTE");}}});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}
+  const inConsole=document.getElementById("pair").classList.contains("hidden");
+  const editing=["INPUT","TEXTAREA"].includes(document.activeElement.tagName);
+  if(inConsole&&!editing&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&document.activeElement.tagName!=="BUTTON"){
+    if(e.key.length===1){e.preventDefault();commandInput.focus();commandInput.value+=e.key;}
+    else if(e.key==="Enter"){e.preventDefault();$("cmd").requestSubmit();}
+  }
+});
 $("fullScreen").addEventListener("click",()=>{const target=document.documentElement;if(!document.fullscreenElement){target.requestFullscreen?.().catch(()=>{});}else{document.exitFullscreen?.().catch(()=>{});}});
 const canvas=$("matrixRain"),ctx=canvas.getContext("2d",{alpha:true});const glyphs="01ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%&*+-<>[]{}アカサタナハマヤラワ";let drops=[],fontSize=17,lastFrame=0;
 function resizeRain(){const dpr=Math.min(window.devicePixelRatio||1,1.6);canvas.width=Math.floor(innerWidth*dpr);canvas.height=Math.floor(innerHeight*dpr);canvas.style.width=innerWidth+"px";canvas.style.height=innerHeight+"px";ctx.setTransform(dpr,0,0,dpr,0,0);fontSize=innerWidth<650?14:17;const cols=Math.ceil(innerWidth/fontSize);drops=Array.from({length:cols},()=>Math.random()*-innerHeight/fontSize);}
-function drawRain(time){requestAnimationFrame(drawRain);if(document.hidden||time-lastFrame<38)return;lastFrame=time;ctx.fillStyle="rgba(0,4,1,0.105)";ctx.fillRect(0,0,innerWidth,innerHeight);const active=time<rainBoostUntil;ctx.font=fontSize+"px IBM Plex Mono, monospace";for(let i=0;i<drops.length;i++){if(Math.random()>(active?0.93:0.48))continue;const ch=glyphs[Math.floor(Math.random()*glyphs.length)],x=i*fontSize,y=drops[i]*fontSize;ctx.fillStyle=Math.random()>0.94?"#d8ffe1":active?"#38ff69":"#16883a";ctx.fillText(ch,x,y);drops[i]+=active?(1.2+Math.random()*2.2):(.35+Math.random()*.8);if(y>innerHeight&&Math.random()>(active?0.94:0.985))drops[i]=Math.random()*-20;}}
+function drawRain(time){requestAnimationFrame(drawRain);if(document.hidden||time-lastFrame<28)return;lastFrame=time;if(time>=rainBoostUntil)return;ctx.fillStyle="rgba(0,4,1,0.16)";ctx.fillRect(0,0,innerWidth,innerHeight);ctx.font=fontSize+"px IBM Plex Mono, monospace";for(let i=0;i<drops.length;i++){if(Math.random()>0.96)continue;const ch=Math.random()>0.28?glyphs[Math.floor(Math.random()*glyphs.length)]:String(Math.floor(Math.random()*10)),x=i*fontSize,y=drops[i]*fontSize;ctx.fillStyle=Math.random()>0.9?"#d8ffe1":"#38ff69";ctx.fillText(ch,x,y);drops[i]+=1.5+Math.random()*2.4;if(y>innerHeight&&Math.random()>0.94)drops[i]=Math.random()*-30;}}
 window.addEventListener("resize",resizeRain);resizeRain();requestAnimationFrame(drawRain);
 const inviteCode=new URLSearchParams(location.search).get("join");
 if(inviteCode){show("pair");$("joinCode").value=inviteCode.toUpperCase();message("تم تعبئة الرمز من رابط الدعوة. اضغط «طلب الانضمام» لإرسال الطلب.");}
