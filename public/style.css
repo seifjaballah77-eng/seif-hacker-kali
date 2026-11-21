@@ -127,3 +127,35 @@ html,body{background:#030304;color:#70ff8d}
 .globe-foot{padding-top:10px;color:#8dba99;font-size:8px}
 @keyframes globeSweep{to{transform:rotate(360deg)}}
 @media(max-width:700px){.globe-panel{padding:9px 8px}.globe-stage,.earth-globe{min-height:300px}.globe-radar-sweep{inset:9% 9%}.globe-info{grid-template-columns:1fr;gap:8px}.globe-info>div{flex-direction:row;justify-content:space-between}.globe-foot{flex-wrap:wrap;font-size:7px}.globe-topline{font-size:8px}}
+
+/* SEIF HACKER KALI — nodes, missions and local monitor */
+.cinema-tools{align-items:flex-start;flex-wrap:wrap;max-width:min(760px,calc(100vw - 28px))}
+.cinema-tools button{cursor:pointer;white-space:nowrap}
+.feature-panel{position:fixed;top:58px;right:0;width:min(410px,calc(100vw - 28px));max-height:min(72vh,650px);overflow:auto;padding:16px;background:linear-gradient(145deg,#050d08f5,#12040af5);border:1px solid #ff2948;box-shadow:0 12px 48px #000c,0 0 24px #ff294833;color:#dfffe7;direction:ltr;text-align:left}
+.feature-panel.hidden{display:none!important}
+.feature-head{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#ff7185;font:700 12px "IBM Plex Mono",monospace;letter-spacing:1px}
+.feature-head button{margin:0;padding:2px 9px;background:#25050d;border:1px solid #ff2948;color:#fff;font-size:18px}
+.feature-note{font:11px/1.7 Cairo,sans-serif;color:#9dbba5;direction:rtl;text-align:right;margin:12px 0}
+.node-list,.mission-list{display:grid;gap:7px;margin-top:12px}
+.node-row{display:flex;align-items:center;gap:10px;padding:9px;border:1px solid #235c35;background:#030906}
+.node-row>i,.monitor-live i{width:8px;height:8px;flex:0 0 auto;border-radius:50%;background:#5aff82;box-shadow:0 0 10px #5aff82}
+.node-row span{display:grid;gap:3px;flex:1;min-width:0}
+.node-row b{font:11px "IBM Plex Mono",monospace;color:#eaffee}
+.node-row small{font:9px "IBM Plex Mono",monospace;color:#78a987}
+.node-row em{font:8px "IBM Plex Mono",monospace;color:#ff7185;font-style:normal}
+.mission-progress{height:7px;background:#1b2820;margin:14px 0 6px;border:1px solid #386345}
+.mission-progress span{display:block;height:100%;background:linear-gradient(90deg,#55ff79,#ff2948);transition:width .25s}
+.mission-count{font:10px "IBM Plex Mono",monospace;color:#73ff92;text-align:right}
+.mission-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #263b2c;background:#050906}
+.mission-row>b{font:12px "IBM Plex Mono",monospace;color:#7b9d84}
+.mission-row span{flex:1;font:12px Cairo,sans-serif;direction:rtl;text-align:right}
+.mission-row small{font:8px "IBM Plex Mono",monospace;color:#7b9d84}
+.mission-row.done{border-color:#26783d}.mission-row.done>b,.mission-row.done small{color:#63ff88}
+.mission-row.current{border-color:#ff2948}.mission-row.current>b,.mission-row.current small{color:#ff7185}
+.monitor-live{display:flex;align-items:center;gap:8px;margin:13px 0;color:#70ff91;font:9px "IBM Plex Mono",monospace}
+.monitor-live i{animation:pulse 1.2s infinite}
+.monitor-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.monitor-grid>div{display:grid;gap:7px;padding:10px;border:1px solid #245b36;background:#030906;min-width:0}
+.monitor-grid small{font:8px "IBM Plex Mono",monospace;color:#ff7185}
+.monitor-grid b{font:12px "IBM Plex Mono",monospace;color:#e7ffed;overflow-wrap:anywhere}
+@media(max-width:600px){.cinema-tools{top:7px;right:7px;left:7px;max-width:none;gap:5px}.cinema-tools button{padding:6px 8px;font-size:9px}.feature-panel{top:47px;right:0;width:min(390px,calc(100vw - 14px));max-height:70vh;padding:12px}.monitor-grid{grid-template-columns:1fr 1fr}.node-row em{font-size:7px}}
