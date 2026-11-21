@@ -10,10 +10,10 @@ function setStatus(value){$("status").textContent="● "+value;}
 function show(id){
   document.querySelectorAll(".view").forEach(x=>x.classList.add("hidden"));
   $(id).classList.remove("hidden");
-  document.querySelectorAll(".nav").forEach(b=>b.classList.toggle("active",b.dataset.view===id));
+  document.querySelectorAll(".top-button[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===id));
   
 }
-document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>show(b.dataset.view)));
+document.querySelectorAll(".top-button[data-view]").forEach(b=>b.addEventListener("click",()=>show(b.dataset.view)));
 
 function connect(){
   return new Promise((resolve,reject)=>{
