@@ -211,7 +211,11 @@ const cinemaScenarios=[
  {name:"اكتشاف الملفات",en:"FILE DISCOVERY",desc:"استعراض الملفات والفهارس"},
  {name:"مركز التحكم",en:"CONTROL CENTER",desc:"تشغيل لوحة مراقبة مركزية"},
  {name:"تتبع العقد",en:"NODE TRACKING",desc:"عرض نقاط اتصال موزعة"},
- {name:"تحليل الإشارات",en:"SIGNAL ANALYSIS",desc:"فحص الإشارات وتدفق البيانات"}
+ {name:"تحليل الإشارات",en:"SIGNAL ANALYSIS",desc:"فحص الإشارات وتدفق البيانات"},
+ {name:"مراقبة الخوادم",en:"SERVER WATCH",desc:"مراقبة مؤشرات الخوادم الافتراضية"},
+ {name:"تدفق البيانات",en:"DATA STREAM",desc:"متابعة تدفق البيانات بين العقد"},
+ {name:"تحليل الحماية",en:"SECURITY REVIEW",desc:"مراجعة طبقات الحماية الافتراضية"},
+ {name:"اتصالات الأقمار",en:"SATELLITE LINK",desc:"عرض مسارات اتصال عالمية"}
 ];
 function playCinemaTone(freq=620,duration=.09,type="sine"){
  if(!cinemaSound)return;
