@@ -231,6 +231,12 @@ function countryLabelPoint(f){
  const pts=[];const walk=c=>{if(!Array.isArray(c))return;if(typeof c[0]==="number"){pts.push(c);return;}c.forEach(walk);};walk(f.geometry&&f.geometry.coordinates);
  if(!pts.length)return null;return {lng:pts.reduce((s,p)=>s+p[0],0)/pts.length,lat:pts.reduce((s,p)=>s+p[1],0)/pts.length};
 }
+let countryDataPromise=null;
+function preloadGlobalNetwork(){
+ const start=()=>{if(!countryDataPromise)countryDataPromise=loadCountryData().catch(err=>{countryDataPromise=null;throw err;});countryDataPromise.catch(()=>{});};
+ if("requestIdleCallback"in window)requestIdleCallback(start,{timeout:2500});else setTimeout(start,1200);
+ const texture=new Image();texture.decoding="async";texture.src="https://unpkg.com/three-globe@2.41.12/example/img/earth-night.jpg";
+}
 async function loadCountryData(){
  for(const url of ["https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson","https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"]){
   try{const r=await fetch(url,{mode:"cors",cache:"force-cache"});if(!r.ok)continue;const j=await r.json();if(j.features&&j.features.length>150)return j;}catch(e){}
@@ -244,16 +250,32 @@ async function showWorldGlobe(location){
  const loading=cinema.querySelector("#globeLoading");cinema.querySelector("#globeLocationName").textContent=location.name;cinema.querySelector("#globeCoordinates").textContent=location.lat.toFixed(4)+"° · "+location.lng.toFixed(4)+"°";
  if(!window.Globe){loading.textContent="تعذر تحميل محرك الكرة الأرضية. تحقق من الاتصال.";return new Promise(resolve=>cinema.querySelector("#continueMap").addEventListener("click",resolve,{once:true}));}
  try{
-  const geo=await loadCountryData();if(cinemaCancelled)return;
+  const geo=await (countryDataPromise||loadCountryData());if(cinemaCancelled)return;
   const host=cinema.querySelector("#earthGlobe"),w=Math.max(280,host.clientWidth||window.innerWidth-48),h=Math.max(300,Math.min(560,Math.round(w*.62)));
   const labels=geo.features.map(f=>{const pos=countryLabelPoint(f),p=f.properties||{},name=p.ADMIN||p.NAME_EN||p.NAME;if(!pos||!name)return null;return {lat:pos.lat,lng:pos.lng,name:String(name)};}).filter(Boolean);
-  const globe=Globe()(host).width(w).height(h).backgroundColor("rgba(0,0,0,0)").showAtmosphere(true).atmosphereColor("#4bff83").atmosphereAltitude(.19)
+  const networkHubs=[
+   {name:"NEW YORK",lat:40.7128,lng:-74.0060},{name:"LONDON",lat:51.5072,lng:-0.1276},
+   {name:"FRANKFURT",lat:50.1109,lng:8.6821},{name:"SINGAPORE",lat:1.3521,lng:103.8198},
+   {name:"TOKYO",lat:35.6762,lng:139.6503},{name:"HONG KONG",lat:22.3193,lng:114.1694},
+   {name:"DUBAI",lat:25.2048,lng:55.2708},{name:"MUMBAI",lat:19.0760,lng:72.8777},
+   {name:"SAO PAULO",lat:-23.5505,lng:-46.6333},{name:"LOS ANGELES",lat:34.0522,lng:-118.2437},
+   {name:"SYDNEY",lat:-33.8688,lng:151.2093},{name:"JOHANNESBURG",lat:-26.2041,lng:28.0473},
+   {name:"TUNIS",lat:36.8065,lng:10.1815}
+  ];
+  const backbonePairs=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,3],[2,6],[6,7],[7,3],[0,9],[9,4],[0,8],[8,11],[11,6],[3,10],[1,11],[12,1],[12,6],[12,2]];
+  const backbone=backbonePairs.map(([a,b])=>({startLat:networkHubs[a].lat,startLng:networkHubs[a].lng,endLat:networkHubs[b].lat,endLng:networkHubs[b].lng}));
+  const hubPoints=networkHubs.map(p=>({...p,size:.075}));
+  const globe=Globe()(host).width(w).height(h).backgroundColor("rgba(0,0,0,0)").showAtmosphere(true).atmosphereColor("#4bff83").atmosphereAltitude(.22)
    .globeImageUrl("https://unpkg.com/three-globe@2.41.12/example/img/earth-night.jpg")
-   .polygonsData(geo.features).polygonAltitude(.006).polygonCapColor(()=>"rgba(12,64,35,0.62)").polygonSideColor(()=>"rgba(30,110,65,0.18)").polygonStrokeColor(()=>"rgba(100,255,145,0.72)")
+   .polygonsData(geo.features).polygonAltitude(.006).polygonCapColor(()=>"rgba(12,64,35,0.48)").polygonSideColor(()=>"rgba(30,110,65,0.18)").polygonStrokeColor(()=>"rgba(100,255,145,0.78)")
    .polygonLabel(f=>{const p=f.properties||{};return "<b>"+escapeText(p.ADMIN||p.NAME_EN||p.NAME||"")+"</b>";})
-   .labelsData(labels).labelLat(d=>d.lat).labelLng(d=>d.lng).labelText(d=>d.name).labelSize(1.05).labelDotRadius(.12).labelColor(()=>"rgba(225,255,232,0.88)").labelResolution(3).labelAltitude(.012)
+   .labelsData(labels).labelLat(d=>d.lat).labelLng(d=>d.lng).labelText(d=>d.name).labelSize(1.0).labelDotRadius(.10).labelColor(()=>"rgba(225,255,232,0.86)").labelResolution(3).labelAltitude(.012)
+   .arcsData(backbone).arcStartLat(d=>d.startLat).arcStartLng(d=>d.startLng).arcEndLat(d=>d.endLat).arcEndLng(d=>d.endLng)
+   .arcColor(()=>["rgba(65,255,130,.95)","rgba(255,45,75,.85)"]).arcAltitudeAutoScale(.34).arcStroke(.42)
+   .arcDashLength(.42).arcDashGap(2.2).arcDashInitialGap(()=>Math.random()).arcDashAnimateTime(2600)
    .ringsData([{lat:location.lat,lng:location.lng,maxR:5}]).ringLat(d=>d.lat).ringLng(d=>d.lng).ringMaxRadius("maxR").ringPropagationSpeed(1.5).ringRepeatPeriod(1500)
-   .pointsData([{lat:location.lat,lng:location.lng,size:.24}]).pointLat(d=>d.lat).pointLng(d=>d.lng).pointAltitude(.025).pointRadius("size").pointColor(() => "#ff2948");
+   .pointsData([{lat:location.lat,lng:location.lng,size:.24,color:"#ff2948"},...hubPoints.map(p=>({...p,color:"#55ff89"}))])
+   .pointLat(d=>d.lat).pointLng(d=>d.lng).pointAltitude(.025).pointRadius("size").pointColor(d=>d.color);
   globe.pointOfView({lat:location.lat,lng:location.lng,altitude:1.75},1400);
   const controls=globe.controls();controls.autoRotate=true;controls.autoRotateSpeed=.28;controls.enableDamping=true;controls.dampingFactor=.08;
   const resize=()=>{if(host.isConnected){const nw=Math.max(280,host.clientWidth);globe.width(nw).height(Math.max(300,Math.min(560,Math.round(nw*.62))));}};window.addEventListener("resize",resize);
@@ -290,6 +312,7 @@ commandInput.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.p
 commandInput.addEventListener("input",()=>{commandInput.style.height="auto";commandInput.style.height=Math.min(commandInput.scrollHeight,160)+"px";});
 document.addEventListener("keydown",e=>{if(!cinemaStarted&&e.key==="Enter"){e.preventDefault();startCinema();return;}if(e.key==="Escape"&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="c"&&cinemaRunning){e.preventDefault();stopExecution();}});
 $("fullScreen").addEventListener("click",()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.().catch(()=>{});});$("cinemaSoundToggle").addEventListener("click",()=>{cinemaSound=!cinemaSound;updateCinemaTools();if(cinemaSound)playCinemaTone(760,.12);});$("cinemaFullToggle").addEventListener("click",()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.().catch(()=>{});});document.addEventListener("fullscreenchange",updateCinemaTools);canvas.style.opacity="0";
+preloadGlobalNetwork();
 const inviteCode=new URLSearchParams(location.search).get("join");
 if(inviteCode){show("pair");$("joinCode").value=inviteCode.toUpperCase();message("تم تعبئة الرمز من رابط الدعوة. اضغط «طلب الانضمام» لإرسال الطلب.");}
 if("serviceWorker"in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{});
