@@ -194,34 +194,87 @@ function resetSession(closeSocket=false){
   setStatus("غير مقترن");
 }
 const output=$("output"),commandInput=$("command");
-const codeFragments=["const session = await secureHandshake();","[ OK ] validating device fingerprint","stream.open({ transport: 'WebRTC' });","0x"+Math.random().toString(16).slice(2,10).toUpperCase()+" :: ACCESS TOKEN","const packet = encode(payload);","SYNC_CHANNEL // ENCRYPTED","while(connection.active){ await receive(); }","route[0] => node_"+Math.floor(Math.random()*900+100),"ALLOC "+Math.floor(Math.random()*99999)+" BYTES // COMPLETE","0x"+Math.floor(Math.random()*0xffffff).toString(16).toUpperCase()+" : RESPONSE "+(Math.random()*900|0)];
-let typingQueue=[],typingBusy=false,rainBoostUntil=0;
-function queueCode(text){typingQueue.push(...text);if(typingBusy)return;typingBusy=true;const typeNext=()=>{if(!typingQueue.length){typingBusy=false;return;}output.textContent+=typingQueue.shift();if(output.textContent.length>10500)output.textContent=output.textContent.slice(-8500);output.scrollTop=output.scrollHeight;setTimeout(typeNext,2+Math.random()*7);};typeNext();}
+const codeFragments=["[ OK ] validating device fingerprint","stream.open({ transport: 'WebRTC' });","0x"+Math.random().toString(16).slice(2,10).toUpperCase()+" :: ACCESS TOKEN","const packet = encode(payload);","SYNC_CHANNEL // ENCRYPTED","while(connection.active){ await receive(); }","route[0] => node_"+Math.floor(Math.random()*900+100),"ALLOC "+Math.floor(Math.random()*99999)+" BYTES // COMPLETE","0x"+Math.floor(Math.random()*0xffffff).toString(16).toUpperCase()+" : RESPONSE "+(Math.random()*900|0)];
+let typingQueue=[],typingBusy=false,rainActive=false,randomLoop=null;
 const NL=String.fromCharCode(10);
-function triggerCodeBurst(value){
-  const clean=String(value).replaceAll(NL," ").replaceAll(String.fromCharCode(13)," ").trim().slice(0,240);
-  if(!clean)return;
-  rainBoostUntil=performance.now()+5200;
-  const burst=5+Math.floor(Math.random()*5);
-  let lines=NL+"> "+clean+NL;
-  for(let i=0;i<burst;i++)lines+=codeFragments[Math.floor(Math.random()*codeFragments.length)]+NL;
-  queueCode(lines);
+function appendOutput(text){
+  output.textContent+=text;
+  if(output.textContent.length>14000)output.textContent=output.textContent.slice(-11000);
+  output.scrollTop=output.scrollHeight;
   if(permissions.sync&&channel?.readyState==="open")channel.send(JSON.stringify({type:"sync-output",text:output.textContent.slice(-10000)}));
 }
-$("cmd").addEventListener("submit",e=>{e.preventDefault();const value=commandInput.value.trim();if(value){triggerCodeBurst(value);commandInput.value="";}});
+function queueCode(text){
+  typingQueue.push(...text);
+  if(typingBusy)return;
+  typingBusy=true;
+  const typeNext=()=>{
+    if(!typingQueue.length){typingBusy=false;return;}
+    output.textContent+=typingQueue.shift();
+    if(output.textContent.length>14000)output.textContent=output.textContent.slice(-11000);
+    output.scrollTop=output.scrollHeight;
+    setTimeout(typeNext,2+Math.random()*5);
+  };
+  typeNext();
+}
+function stopExecution(){
+  if(randomLoop){clearInterval(randomLoop);randomLoop=null;}
+  rainActive=false;
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  appendOutput(NL+"^C"+NL+"> تم إيقاف التنفيذ."+NL);
+}
+function runRandomBatch(script){
+  const normalized=script.toLowerCase();
+  const isRandomLoop=normalized.includes("%random%")&&normalized.includes("echo")&&normalized.includes("goto");
+  rainActive=true;
+  if(isRandomLoop){
+    appendOutput(script+NL+"----------------------------------------"+NL);
+    randomLoop=setInterval(()=>{
+      const values=Array.from({length:14},()=>Math.floor(Math.random()*32768));
+      appendOutput(values.join(" ")+NL);
+    },65);
+    return;
+  }
+  const clean=script.trim().slice(0,1200);
+  const lines=clean.split(NL);
+  let out="";
+  for(const line of lines){
+    const cmd=line.trim();
+    if(!cmd||cmd.startsWith("@")||cmd.startsWith(":"))continue;
+    if(/^color\\s+0a/i.test(cmd))continue;
+    if(/^echo\\s+/i.test(cmd))out+=cmd.replace(/^echo\\s+/i,"")+NL;
+    else if(/^cls$/i.test(cmd)){output.textContent="";out="";}
+    else out+=codeFragments[Math.floor(Math.random()*codeFragments.length)]+NL;
+  }
+  if(!out)out="[ OK ] COMMAND ACCEPTED"+NL+codeFragments[Math.floor(Math.random()*codeFragments.length)]+NL;
+  queueCode(out);
+}
+$("cmd").addEventListener("submit",e=>{
+  e.preventDefault();
+  const value=commandInput.value.trim();
+  if(!value)return;
+  if(randomLoop)clearInterval(randomLoop);
+  randomLoop=null;
+  typingQueue=[];
+  runRandomBatch(value);
+  commandInput.value="";
+  commandInput.style.height="auto";
+});
+commandInput.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("cmd").requestSubmit();}
+  if(e.key==="c"&&(e.ctrlKey||e.metaKey)){e.preventDefault();stopExecution();}
+});
+commandInput.addEventListener("input",()=>{
+  commandInput.style.height="auto";
+  commandInput.style.height=Math.min(commandInput.scrollHeight,160)+"px";
+});
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}
-  const inConsole=document.getElementById("pair").classList.contains("hidden");
-  const editing=["INPUT","TEXTAREA"].includes(document.activeElement.tagName);
-  if(inConsole&&!editing&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&document.activeElement.tagName!=="BUTTON"){
-    if(e.key.length===1){e.preventDefault();commandInput.focus();commandInput.value+=e.key;}
-    else if(e.key==="Enter"){e.preventDefault();$("cmd").requestSubmit();}
-  }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="c"&&randomLoop){e.preventDefault();stopExecution();}
 });
 $("fullScreen").addEventListener("click",()=>{const target=document.documentElement;if(!document.fullscreenElement){target.requestFullscreen?.().catch(()=>{});}else{document.exitFullscreen?.().catch(()=>{});}});
 const canvas=$("matrixRain"),ctx=canvas.getContext("2d",{alpha:true});const glyphs="01ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%&*+-<>[]{}アカサタナハマヤラワ";let drops=[],fontSize=17,lastFrame=0;
 function resizeRain(){const dpr=Math.min(window.devicePixelRatio||1,1.6);canvas.width=Math.floor(innerWidth*dpr);canvas.height=Math.floor(innerHeight*dpr);canvas.style.width=innerWidth+"px";canvas.style.height=innerHeight+"px";ctx.setTransform(dpr,0,0,dpr,0,0);fontSize=innerWidth<650?14:17;const cols=Math.ceil(innerWidth/fontSize);drops=Array.from({length:cols},()=>Math.random()*-innerHeight/fontSize);}
-function drawRain(time){requestAnimationFrame(drawRain);if(document.hidden||time-lastFrame<28)return;lastFrame=time;if(time>=rainBoostUntil){ctx.clearRect(0,0,innerWidth,innerHeight);return;}ctx.fillStyle="rgba(0,4,1,0.16)";ctx.fillRect(0,0,innerWidth,innerHeight);ctx.font=fontSize+"px IBM Plex Mono, monospace";for(let i=0;i<drops.length;i++){if(Math.random()>0.96)continue;const ch=Math.random()>0.28?glyphs[Math.floor(Math.random()*glyphs.length)]:String(Math.floor(Math.random()*10)),x=i*fontSize,y=drops[i]*fontSize;ctx.fillStyle=Math.random()>0.9?"#d8ffe1":"#38ff69";ctx.fillText(ch,x,y);drops[i]+=1.5+Math.random()*2.4;if(y>innerHeight&&Math.random()>0.94)drops[i]=Math.random()*-30;}}
+function drawRain(time){requestAnimationFrame(drawRain);if(document.hidden||time-lastFrame<28)return;lastFrame=time;if(!rainActive){ctx.clearRect(0,0,innerWidth,innerHeight);return;}ctx.fillStyle="rgba(0,4,1,0.16)";ctx.fillRect(0,0,innerWidth,innerHeight);ctx.font=fontSize+"px IBM Plex Mono, monospace";for(let i=0;i<drops.length;i++){if(Math.random()>0.96)continue;const ch=Math.random()>0.28?glyphs[Math.floor(Math.random()*glyphs.length)]:String(Math.floor(Math.random()*10)),x=i*fontSize,y=drops[i]*fontSize;ctx.fillStyle=Math.random()>0.9?"#d8ffe1":"#38ff69";ctx.fillText(ch,x,y);drops[i]+=1.5+Math.random()*2.4;if(y>innerHeight&&Math.random()>0.94)drops[i]=Math.random()*-30;}}
 window.addEventListener("resize",resizeRain);resizeRain();requestAnimationFrame(drawRain);
 const inviteCode=new URLSearchParams(location.search).get("join");
 if(inviteCode){show("pair");$("joinCode").value=inviteCode.toUpperCase();message("تم تعبئة الرمز من رابط الدعوة. اضغط «طلب الانضمام» لإرسال الطلب.");}
