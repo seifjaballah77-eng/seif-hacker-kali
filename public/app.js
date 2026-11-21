@@ -197,7 +197,16 @@ const output=$("output"),commandInput=$("command");
 const codeFragments=["const session = await secureHandshake();","[ OK ] validating device fingerprint","stream.open({ transport: 'WebRTC' });","0x"+Math.random().toString(16).slice(2,10).toUpperCase()+" :: ACCESS TOKEN","const packet = encode(payload);","SYNC_CHANNEL // ENCRYPTED","while(connection.active){ await receive(); }","route[0] => node_"+Math.floor(Math.random()*900+100),"ALLOC "+Math.floor(Math.random()*99999)+" BYTES // COMPLETE","0x"+Math.floor(Math.random()*0xffffff).toString(16).toUpperCase()+" : RESPONSE "+(Math.random()*900|0)];
 let typingQueue=[],typingBusy=false,rainBoostUntil=0;
 function queueCode(text){typingQueue.push(...text);if(typingBusy)return;typingBusy=true;const typeNext=()=>{if(!typingQueue.length){typingBusy=false;return;}output.textContent+=typingQueue.shift();if(output.textContent.length>10500)output.textContent=output.textContent.slice(-8500);output.scrollTop=output.scrollHeight;setTimeout(typeNext,2+Math.random()*7);};typeNext();}
-function triggerCodeBurst(value){rainBoostUntil=performance.now()+3200;const burst=2+Math.floor(Math.random()*4);let lines="\\n> "+String(value).replace(/[\\r\\n]/g," ").slice(0,60)+"\\n";for(let i=0;i<burst;i++)lines+=codeFragments[Math.floor(Math.random()*codeFragments.length)]+"\\n";queueCode(lines);if(permissions.sync&&channel?.readyState==="open")channel.send(JSON.stringify({type:"sync-output",text:output.textContent.slice(-10000)}));}
+const NL=String.fromCharCode(10);
+function triggerCodeBurst(value){
+  rainBoostUntil=performance.now()+3200;
+  const burst=2+Math.floor(Math.random()*4);
+  let clean=String(value).replaceAll(NL," ").replaceAll(String.fromCharCode(13)," ").slice(0,60);
+  let lines=NL+"> "+clean+NL;
+  for(let i=0;i<burst;i++)lines+=codeFragments[Math.floor(Math.random()*codeFragments.length)]+NL;
+  queueCode(lines);
+  if(permissions.sync&&channel?.readyState==="open")channel.send(JSON.stringify({type:"sync-output",text:output.textContent.slice(-10000)}));
+}
 commandInput.addEventListener("input",()=>{const value=commandInput.value.slice(-1);if(value)triggerCodeBurst(value);});
 $("cmd").addEventListener("submit",e=>{e.preventDefault();const value=commandInput.value.trim();if(value){triggerCodeBurst(value);commandInput.value="";}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}if(document.getElementById("pair").classList.contains("hidden")&&!["INPUT","TEXTAREA","BUTTON"].includes(document.activeElement.tagName)&&e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey)commandInput.focus();});
