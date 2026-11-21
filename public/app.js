@@ -193,89 +193,29 @@ function resetSession(closeSocket=false){
   if(closeSocket&&socket){socket.close();socket=null;}
   setStatus("غير مقترن");
 }
-const output=$("output"),commandInput=$("command");
-const codeFragments=["[ OK ] validating device fingerprint","stream.open({ transport: 'WebRTC' });","0x"+Math.random().toString(16).slice(2,10).toUpperCase()+" :: ACCESS TOKEN","const packet = encode(payload);","SYNC_CHANNEL // ENCRYPTED","while(connection.active){ await receive(); }","route[0] => node_"+Math.floor(Math.random()*900+100),"ALLOC "+Math.floor(Math.random()*99999)+" BYTES // COMPLETE","0x"+Math.floor(Math.random()*0xffffff).toString(16).toUpperCase()+" : RESPONSE "+(Math.random()*900|0)];
-let typingQueue=[],typingBusy=false,rainActive=false,randomLoop=null;
-const NL=String.fromCharCode(10);
-function appendOutput(text){
-  output.textContent+=text;
-  if(output.textContent.length>14000)output.textContent=output.textContent.slice(-11000);
-  output.scrollTop=output.scrollHeight;
-  if(permissions.sync&&channel?.readyState==="open")channel.send(JSON.stringify({type:"sync-output",text:output.textContent.slice(-10000)}));
-}
-function queueCode(text){
-  typingQueue.push(...text);
-  if(typingBusy)return;
-  typingBusy=true;
-  const typeNext=()=>{
-    if(!typingQueue.length){typingBusy=false;return;}
-    output.textContent+=typingQueue.shift();
-    if(output.textContent.length>14000)output.textContent=output.textContent.slice(-11000);
-    output.scrollTop=output.scrollHeight;
-    setTimeout(typeNext,2+Math.random()*5);
-  };
-  typeNext();
-}
-function stopExecution(){
-  if(randomLoop){clearInterval(randomLoop);randomLoop=null;}
-  rainActive=false;
-  ctx.clearRect(0,0,innerWidth,innerHeight);
-  appendOutput(NL+"^C"+NL+"> تم إيقاف التنفيذ."+NL);
-}
-function runRandomBatch(script){
-  const normalized=script.toLowerCase();
-  const isRandomLoop=normalized.includes("%random%")&&normalized.includes("echo")&&normalized.includes("goto");
-  rainActive=true;
-  if(isRandomLoop){
-    appendOutput(script+NL+"----------------------------------------"+NL);
-    randomLoop=setInterval(()=>{
-      const values=Array.from({length:14},()=>Math.floor(Math.random()*32768));
-      appendOutput(values.join(" ")+NL);
-    },65);
-    return;
-  }
-  const clean=script.trim().slice(0,1200);
-  const lines=clean.split(NL);
-  let out="";
-  for(const line of lines){
-    const cmd=line.trim();
-    if(!cmd||cmd.startsWith("@")||cmd.startsWith(":"))continue;
-    if(/^color\\s+0a/i.test(cmd))continue;
-    if(/^echo\\s+/i.test(cmd))out+=cmd.replace(/^echo\\s+/i,"")+NL;
-    else if(/^cls$/i.test(cmd)){output.textContent="";out="";}
-    else out+=codeFragments[Math.floor(Math.random()*codeFragments.length)]+NL;
-  }
-  if(!out)out="[ OK ] COMMAND ACCEPTED"+NL+codeFragments[Math.floor(Math.random()*codeFragments.length)]+NL;
-  queueCode(out);
-}
-$("cmd").addEventListener("submit",e=>{
-  e.preventDefault();
-  const value=commandInput.value.trim();
-  if(!value)return;
-  if(randomLoop)clearInterval(randomLoop);
-  randomLoop=null;
-  typingQueue=[];
-  runRandomBatch(value);
-  commandInput.value="";
-  commandInput.style.height="auto";
-});
-commandInput.addEventListener("keydown",e=>{
-  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("cmd").requestSubmit();}
-  if(e.key==="c"&&(e.ctrlKey||e.metaKey)){e.preventDefault();stopExecution();}
-});
-commandInput.addEventListener("input",()=>{
-  commandInput.style.height="auto";
-  commandInput.style.height=Math.min(commandInput.scrollHeight,160)+"px";
-});
-document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="c"&&randomLoop){e.preventDefault();stopExecution();}
-});
-$("fullScreen").addEventListener("click",()=>{const target=document.documentElement;if(!document.fullscreenElement){target.requestFullscreen?.().catch(()=>{});}else{document.exitFullscreen?.().catch(()=>{});}});
-const canvas=$("matrixRain"),ctx=canvas.getContext("2d",{alpha:true});const glyphs="01ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%&*+-<>[]{}アカサタナハマヤラワ";let drops=[],fontSize=17,lastFrame=0;
-function resizeRain(){const dpr=Math.min(window.devicePixelRatio||1,1.6);canvas.width=Math.floor(innerWidth*dpr);canvas.height=Math.floor(innerHeight*dpr);canvas.style.width=innerWidth+"px";canvas.style.height=innerHeight+"px";ctx.setTransform(dpr,0,0,dpr,0,0);fontSize=innerWidth<650?14:17;const cols=Math.ceil(innerWidth/fontSize);drops=Array.from({length:cols},()=>Math.random()*-innerHeight/fontSize);}
-function drawRain(time){requestAnimationFrame(drawRain);if(document.hidden||time-lastFrame<28)return;lastFrame=time;if(!rainActive){ctx.clearRect(0,0,innerWidth,innerHeight);return;}ctx.fillStyle="rgba(0,4,1,0.16)";ctx.fillRect(0,0,innerWidth,innerHeight);ctx.font=fontSize+"px IBM Plex Mono, monospace";for(let i=0;i<drops.length;i++){if(Math.random()>0.96)continue;const ch=Math.random()>0.28?glyphs[Math.floor(Math.random()*glyphs.length)]:String(Math.floor(Math.random()*10)),x=i*fontSize,y=drops[i]*fontSize;ctx.fillStyle=Math.random()>0.9?"#d8ffe1":"#38ff69";ctx.fillText(ch,x,y);drops[i]+=1.5+Math.random()*2.4;if(y>innerHeight&&Math.random()>0.94)drops[i]=Math.random()*-30;}}
-window.addEventListener("resize",resizeRain);resizeRain();requestAnimationFrame(drawRain);
+const output=$("output"),commandInput=$("command"),canvas=$("matrixRain"),cinema=$("cinema");
+const NL=String.fromCharCode(10);let enterArmed=false,cinemaRunning=false;
+const fragments=["[*] INITIALIZING SECURE TERMINAL INTERFACE ...","[+] LOADING CORE MODULES ................. OK","[*] ANALYZING ROUTE TABLE / NODE STATUS ...","[+] SESSION CHANNEL ESTABLISHED","[*] VERIFYING ENCRYPTION LAYERS .......... OK","[+] PACKET STREAM: "+Math.floor(1000+Math.random()*9000)+" KB/s","0x"+Math.floor(Math.random()*0xffffff).toString(16).toUpperCase()+" :: RESPONSE ACCEPTED","THREAD_"+Math.floor(Math.random()*9000+1000)+" // PROCESS ACTIVE","[+] MEMORY BUFFER SYNCHRONIZED","[*] SCANNING VIRTUAL NETWORK SEGMENTS ...","ROUTE :: NODE-"+Math.floor(Math.random()*900+100)+" -> GATEWAY-"+Math.floor(Math.random()*90+10),"[+] CHECKSUM VERIFIED — NO ERRORS","DATA_BLOCK_"+Math.floor(Math.random()*99999)+" : TRANSFER COMPLETE","[*] ESTABLISHING SIMULATED TARGET SESSION ...","[+] FIREWALL STATUS: VISUAL SIMULATION"];
+function appendOutput(t){output.textContent+=t;if(output.textContent.length>14000)output.textContent=output.textContent.slice(-11000);output.scrollTop=output.scrollHeight;if(permissions.sync&&channel?.readyState==="open")channel.send(JSON.stringify({type:"sync-output",text:output.textContent.slice(-10000)}));}
+function typeFast(el,t){return new Promise(resolve=>{let i=0;function tick(){if(!el.isConnected){resolve();return;}const n=Math.min(t.length-i,10+Math.floor(Math.random()*24));el.textContent+=t.slice(i,i+n);i+=n;el.scrollTop=el.scrollHeight;if(i<t.length)setTimeout(tick,1);else resolve();}tick();});}
+function progressMarkup(label){return '<section class="cinema-progress"><div class="progress-label"><span>'+label+'</span><b class="progress-number">0%</b></div><div class="progress-track"><div class="progress-fill"></div></div></section>';}
+function animateProgress(root,duration){const fill=root.querySelector(".progress-fill"),number=root.querySelector(".progress-number"),start=performance.now();return new Promise(resolve=>{function frame(now){const p=Math.min(100,Math.floor((now-start)/duration*100));fill.style.width=p+"%";number.textContent=p+"%";if(p<100)requestAnimationFrame(frame);else resolve();}requestAnimationFrame(frame);});}
+function escapeText(v){return String(v).replace(/[&<>"\']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","\'":"&#39;"}[c]));}
+function enterImmersive(){if(document.documentElement.requestFullscreen&&!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});document.body.classList.add("cinema-mode");}
+async function startCinema(){if(cinemaRunning)return;cinemaRunning=true;enterImmersive();canvas.style.opacity="0";cinema.classList.remove("hidden");cinema.innerHTML='<div class="cinema-top"><span>SEIF // SYSTEM CONSOLE</span><span class="cinema-live">● LIVE SIMULATION</span></div><div class="cinema-terminal"><div class="cinema-terminal-head">SYSTEM DIAGNOSTICS — RUNNING</div><pre class="cinema-log"></pre></div><div class="cinema-bottom">VISUAL SEQUENCE • FICTIONAL ENVIRONMENT • NO REAL TARGETING</div>';
+const log=cinema.querySelector(".cinema-log"),lines=[];for(let i=0;i<135;i++)lines.push(fragments[Math.floor(Math.random()*fragments.length)]);await typeFast(log,lines.join(NL)+NL);
+cinema.innerHTML='<div class="cinema-top"><span>SEIF // SYSTEM CONSOLE</span><span class="cinema-live">● PROCESSING</span></div><div class="cinema-center"><div class="cinema-kicker">NETWORK ANALYSIS</div><h1>جارٍ تحليل المسار</h1><p>يتم تجهيز بيانات العرض السينمائي...</p>'+progressMarkup("تحميل بيانات الجلسة")+'</div><div class="cinema-bottom">SIMULATED PROCESS • 100% LOCAL VISUAL EFFECT</div>';await animateProgress(cinema,4800);
+cinema.innerHTML='<div class="target-found"><div class="target-icon">✓</div><div class="target-kicker">SCAN COMPLETE</div><h1>تم تحديد موقع الهدف</h1><p>اكتمل الفحص التمثيلي بنجاح</p><div class="target-line">TARGET STATUS: <b>FOUND</b></div><button class="cinema-button" id="continueAttack">متابعة المشهد</button></div>';await new Promise(r=>cinema.querySelector("#continueAttack").addEventListener("click",r,{once:true}));
+cinema.innerHTML='<div class="red-alert"><div class="alert-box"><span>!</span></div><div class="alert-label">CRITICAL SECURITY ALERT</div><h1>تحذير أمني خطير</h1><p>تم تفعيل مشهد الإنذار السينمائي</p><div class="blood-flash"></div><button class="cinema-button light" id="showVirus">متابعة</button></div>';await new Promise(r=>cinema.querySelector("#showVirus").addEventListener("click",r,{once:true}));
+cinema.innerHTML='<div class="virus-scene"><div class="virus-warning">⚠ SYSTEM WARNING</div><h1>سيتم إرسال فيروس للهدف</h1><p class="fiction-note">هذا مشهد تمثيلي فقط — لن يتم إرسال أي ملف أو فيروس.</p><label for="fakeTarget">اسم الحساب المستهدف في المشهد</label><input id="fakeTarget" maxlength="48" placeholder="اكتب اسم حسابه هنا..." autocomplete="off"><button class="cinema-button" id="sendFake">بدء الإرسال</button></div>';await new Promise(r=>cinema.querySelector("#sendFake").addEventListener("click",r,{once:true}));
+const account=cinema.querySelector("#fakeTarget").value.trim()||"UNKNOWN_USER";cinema.innerHTML='<div class="sending-scene"><div class="sending-mark">!</div><div class="sending-kicker">SIMULATED PAYLOAD TRANSFER</div><h1>جارٍ الإرسال</h1><p>الحساب: <b>'+escapeText(account)+'</b></p><p class="fiction-note">عملية بصرية وهمية — لا يوجد اتصال بالحساب أو إرسال حقيقي.</p>'+progressMarkup("تقدم الإرسال الوهمي")+'<div class="sending-status">PREPARING VISUAL SEQUENCE...</div></div>';await animateProgress(cinema,6500);
+cinema.querySelector(".sending-status").textContent="اكتمل المشهد التمثيلي بنجاح";const done=document.createElement("button");done.className="cinema-button";done.textContent="إعادة المشهد";done.addEventListener("click",()=>{cinemaRunning=false;cinema.classList.add("hidden");document.body.classList.remove("cinema-mode");if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});appendOutput(NL+"[SIMULATION COMPLETE]"+NL);});cinema.querySelector(".sending-scene").append(done);}
+function stopExecution(){cinemaRunning=false;cinema.classList.add("hidden");document.body.classList.remove("cinema-mode");if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});appendOutput(NL+"^C"+NL+"> تم إيقاف المشهد."+NL);}
+$("cmd").addEventListener("submit",e=>{e.preventDefault();const value=commandInput.value.trim();if(value){enterArmed=true;appendOutput(NL+"C:\\SEIF> "+value+NL+"[ENTER 1/2] اضغط Enter مرة ثانية لبدء المشهد السينمائي..."+NL);commandInput.value="";commandInput.style.height="auto";return;}if(enterArmed){enterArmed=false;startCinema();}});
+commandInput.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("cmd").requestSubmit();}if(e.key==="c"&&(e.ctrlKey||e.metaKey)){e.preventDefault();stopExecution();}});
+commandInput.addEventListener("input",()=>{commandInput.style.height="auto";commandInput.style.height=Math.min(commandInput.scrollHeight,160)+"px";});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.fullscreenElement){document.exitFullscreen().catch(()=>{});return;}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="c"&&cinemaRunning){e.preventDefault();stopExecution();}});
+$("fullScreen").addEventListener("click",()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.().catch(()=>{});});canvas.style.opacity="0";
 const inviteCode=new URLSearchParams(location.search).get("join");
 if(inviteCode){show("pair");$("joinCode").value=inviteCode.toUpperCase();message("تم تعبئة الرمز من رابط الدعوة. اضغط «طلب الانضمام» لإرسال الطلب.");}
 if("serviceWorker"in navigator&&location.protocol==="https:")navigator.serviceWorker.register("./sw.js").catch(()=>{});
